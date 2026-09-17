@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
+  <title>Razorpay Test Payment</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #f5f7fb;
+      font-family: Arial, sans-serif;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 460px;
+      margin: 20px;
+      padding: 32px;
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 10px 35px rgba(0, 0, 0, 0.08);
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 26px;
+    }
+
+    p {
+      color: #64748b;
+      line-height: 1.6;
+    }
+
+    .amount {
+      margin: 24px 0;
+      padding: 18px;
+      background: #f8fafc;
+      border-radius: 12px;
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    button {
+      width: 100%;
+      border: 0;
+      padding: 14px 18px;
+      border-radius: 10px;
+      background: #2563eb;
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    #result {
+      margin-top: 20px;
+      padding: 14px;
+      border-radius: 10px;
+      white-space: pre-wrap;
+      word-break: break-word;
+      display: none;
+    }
+
+    .success {
+      background: #ecfdf5;
+      color: #065f46;
+    }
+
+    .error {
+      background: #fef2f2;
+      color: #991b1b;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="card">
+
+    <h1>Razorpay Test Payment</h1>
+
+    <p>
+      This page is only for Razorpay Test Mode verification.
+      No real money will be charged.
+    </p>
+
+    <div class="amount">
+      Amount: ₹850
+    </div>
+
+    <button id="payButton">
+      Pay ₹850 with Razorpay
+    </button>
+
+    <div id="result"></div>
+
+  </div>
+
+  <!-- Razorpay Checkout -->
+  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+  <script>
+    const orderId = "order_TbT3mDH774UrsQ";
+    const paymentRecordId = "6aa66957122150d585d6f277";
+    const amount = 850;
+    const razorpayKeyId = "rzp_test_TbSgvvskFniIvr";
+
+    const payButton = document.getElementById("payButton");
+    const resultBox = document.getElementById("result");
+
+    function showResult(message, type) {
+      resultBox.style.display = "block";
+      resultBox.className = type;
+      resultBox.textContent = message;
+    }
+
+    payButton.addEventListener("click", function () {
+
+      payButton.disabled = true;
+      payButton.textContent = "Opening Razorpay...";
+
+      const options = {
+        key: razorpayKeyId,
+
+        amount: amount * 100,
+
+        currency: "INR",
+
+        name: "Force Strike Martial Arts Academy",
+
+        description: "Fee Payment - Test Mode",
+
+        order_id: orderId,
+
+        handler: async function (response) {
+
+          console.log("Razorpay Response:", response);
+
+          showResult(
+            "Payment received from Razorpay.\n\n" +
+            "Order ID:\n" +
+            response.razorpay_order_id +
+            "\n\nPayment ID:\n" +
+            response.razorpay_payment_id +
+            "\n\nSignature:\n" +
+            response.razorpay_signature +
+            "\n\nVerifying payment with backend...",
+            "success"
+          );
+
+          try {
+
+            const verifyResponse = await fetch(
+              "http://localhost:5000/api/razorpay/verify",
+              {
+                method: "POST",
+
+                headers: {
+                  "Content-Type": "application/json"
+                },
+
+                credentials: "include",
+
+                body: JSON.stringify({
+                  razorpay_order_id:
+                    response.razorpay_order_id,
+
+                  razorpay_payment_id:
+                    response.razorpay_payment_id,
+
+                  razorpay_signature:
+                    response.razorpay_signature
+                })
+              }
+            );
+
+            const data = await verifyResponse.json();
+
+            console.log(
+              "Backend Verification:",
+              data
+            );
+
+            if (data.success) {
+
+              showResult(
+                "PAYMENT VERIFIED SUCCESSFULLY\n\n" +
+                JSON.stringify(data, null, 2),
+                "success"
+              );
+
+            } else {
+
+              showResult(
+                "PAYMENT VERIFICATION FAILED\n\n" +
+                JSON.stringify(data, null, 2),
+                "error"
+              );
+            }
+
+          } catch (error) {
+
+            console.error(error);
+
+            showResult(
+              "Backend verification request failed.\n\n" +
+              error.message,
+              "error"
+            );
+          }
+
+          payButton.disabled = false;
+          payButton.textContent = "Pay ₹850 with Razorpay";
+        },
+
+        modal: {
+          ondismiss: function () {
+
+            payButton.disabled = false;
+
+            payButton.textContent =
+              "Pay ₹850 with Razorpay";
+
+            showResult(
+              "Razorpay Checkout was closed.",
+              "error"
+            );
+          }
+        },
+
+        theme: {
+          color: "#2563eb"
+        }
+      };
+
+      const razorpay = new Razorpay(options);
+
+      razorpay.open();
+    });
+  </script>
+
+</body>
+</html>
